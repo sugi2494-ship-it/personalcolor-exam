@@ -1,0 +1,834 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>PBS COLOR LAB · SNS 생성기</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0;}
+body{font-family:'Apple SD Gothic Neo','Noto Sans KR',sans-serif;background:#fdf8fc;min-height:100vh;padding-bottom:60px;}
+input,textarea,button{font-family:inherit;}
+input:focus,textarea:focus{outline:none;border-color:#E91E8C!important;}
+@keyframes spin{to{transform:rotate(360deg)}}
+.header{background:#fff;border-bottom:1px solid #f0dcea;padding:13px 16px;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:100;}
+.logo{width:34px;height:34px;background:#E91E8C;border-radius:50%;display:flex;align-items:center;justify-content:center;color:#fff;font-style:italic;font-weight:700;font-size:14px;flex-shrink:0;}
+.nav-btn{padding:7px 14px;border:2px solid #f0dcea;border-radius:50px;background:#fff;color:#4a3a45;cursor:pointer;font-size:12px;font-weight:700;}
+.nav-btn.on{background:#E91E8C;border-color:#E91E8C;color:#fff;}
+.apikey-banner{background:#fff8fd;border:1px solid #f0dcea;border-radius:12px;padding:14px 18px;margin-bottom:16px;display:flex;align-items:center;gap:10px;flex-wrap:wrap;}
+.apikey-input{flex:1;min-width:180px;border:1.5px solid #f0dcea;border-radius:8px;padding:9px 13px;font-size:13px;color:#1a1018;background:#fdf8fc;}
+.apikey-save{padding:9px 18px;background:#E91E8C;color:#fff;border:none;border-radius:8px;cursor:pointer;font-size:13px;font-weight:700;white-space:nowrap;}
+.main{max-width:820px;margin:0 auto;padding:20px 16px;}
+.card{background:#fff;border:1px solid #f0dcea;border-radius:16px;padding:20px 18px;margin-bottom:18px;box-shadow:0 2px 20px rgba(233,30,140,.06);}
+.slabel{font-size:11px;font-weight:700;color:#E91E8C;text-transform:uppercase;letter-spacing:.1em;margin-bottom:8px;display:block;}
+.sublabel{color:#8a7080;font-weight:400;text-transform:none;letter-spacing:0;font-size:11px;}
+textarea.kw{width:100%;border:1.5px solid #f0dcea;border-radius:10px;padding:11px 14px;font-size:15px;color:#1a1018;background:#fdf8fc;resize:vertical;margin-bottom:16px;display:block;min-height:56px;}
+.drop-zone{border:2px dashed #f0dcea;border-radius:12px;padding:16px;text-align:center;cursor:pointer;margin-bottom:10px;background:#fdf0f8;}
+.img-grid{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:14px;}
+.img-thumb{position:relative;}
+.img-thumb img{width:64px;height:64px;object-fit:cover;border-radius:8px;border:2px solid #f0dcea;display:block;}
+.img-num{position:absolute;bottom:0;left:0;right:0;background:rgba(233,30,140,.8);color:#fff;font-size:10px;font-weight:700;text-align:center;border-radius:0 0 6px 6px;padding:1px 0;}
+.img-del{position:absolute;top:-6px;right:-6px;width:18px;height:18px;background:#E91E8C;color:#fff;border:none;border-radius:50%;cursor:pointer;font-size:11px;line-height:18px;text-align:center;}
+.btn-row{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:16px;}
+/* 미선택: 회색 / 선택: 핑크 - 확실히 구분 */
+.ch-btn{padding:9px 16px;border:2px solid #ccc;border-radius:50px;background:#eee;color:#999;cursor:pointer;font-size:13px;font-weight:500;transition:all .15s;}
+.ch-btn.on{background:#E91E8C;border-color:#E91E8C;color:#fff;font-weight:700;box-shadow:0 3px 12px rgba(233,30,140,.4);}
+.tone-btn{padding:7px 13px;border:2px solid #ccc;border-radius:50px;background:#eee;color:#999;cursor:pointer;font-size:12px;transition:all .15s;}
+.tone-btn.on{background:#E91E8C;border-color:#E91E8C;color:#fff;font-weight:700;box-shadow:0 2px 8px rgba(233,30,140,.3);}
+.gen-btn{width:100%;padding:15px;background:#E91E8C;color:#fff;border:none;border-radius:12px;font-size:15px;font-weight:700;cursor:pointer;letter-spacing:.04em;transition:all .2s;}
+.gen-btn:disabled{background:#e0b8d3;cursor:not-allowed;}
+.hint{text-align:center;font-size:11px;color:#c4a8bb;margin-top:7px;}
+.loading{text-align:center;padding:40px;background:#fff;border-radius:16px;border:1px solid #f0dcea;}
+.spinner{width:36px;height:36px;border:3px solid #f9d6ec;border-top-color:#E91E8C;border-radius:50%;animation:spin .8s linear infinite;margin:0 auto 12px;}
+.result-card{background:#fff;border:1px solid #f0dcea;border-radius:16px;overflow:hidden;margin-bottom:16px;box-shadow:0 2px 16px rgba(233,30,140,.05);}
+.rhead{display:flex;align-items:center;justify-content:space-between;padding:13px 18px;border-bottom:1px solid #f0dcea;background:#fdf0f8;}
+.rlabel{font-size:11px;font-weight:700;color:#E91E8C;text-transform:uppercase;letter-spacing:.08em;}
+.rpill{color:#fff;font-size:10px;padding:2px 8px;border-radius:20px;font-weight:600;margin-left:6px;}
+.cp-btn{padding:6px 12px;border:1.5px solid #f0dcea;border-radius:8px;background:#fff;color:#4a3a45;cursor:pointer;font-size:12px;font-weight:600;transition:all .2s;}
+.cp-btn.done{background:#16a34a;border-color:#16a34a;color:#fff;}
+.rbody{padding:18px 20px;}
+.vtab-row{display:flex;gap:6px;padding:10px 18px;border-bottom:1px solid #f0dcea;flex-wrap:wrap;}
+.vtab{padding:6px 13px;border:2px solid #ccc;border-radius:50px;background:#eee;color:#999;cursor:pointer;font-size:12px;}
+.vtab.on{background:#E91E8C;border-color:#E91E8C;color:#fff;font-weight:700;}
+.blog-title{font-size:18px;font-weight:700;color:#1a1018;margin-bottom:12px;line-height:1.5;}
+.blog-hook{background:#fff8fd;border-left:4px solid #E91E8C;border-radius:0 10px 10px 0;padding:12px 15px;margin-bottom:16px;font-style:italic;font-size:15px;font-weight:600;color:#1a1018;line-height:1.8;}
+.blog-h3{font-size:15px;font-weight:700;color:#E91E8C;margin:16px 0 8px;padding:7px 14px;background:#fdf0f8;border-radius:8px;border-left:3px solid #E91E8C;display:block;}
+.blog-divider{border:none;border-top:1px solid #f0dcea;margin:16px 0;}
+.blog-p{font-size:14px;line-height:1.95;color:#4a3a45;margin:0 0 4px;}
+.photo-ph{background:#fdf0f8;border:2px dashed #f0dcea;border-radius:10px;padding:20px;color:#E91E8C;font-size:13px;font-weight:600;text-align:center;margin:14px 0;}
+.photo-real{width:100%;max-width:500px;border-radius:12px;box-shadow:0 4px 16px rgba(0,0,0,.1);display:block;margin:14px auto 8px;}
+.related-imgs{display:flex;gap:10px;margin:16px 0;flex-wrap:wrap;}
+.related-img{flex:1;min-width:160px;max-width:280px;border-radius:10px;overflow:hidden;box-shadow:0 2px 8px rgba(0,0,0,.1);}
+.related-img img{width:100%;height:160px;object-fit:cover;display:block;}
+.related-img-label{font-size:10px;color:#8a7080;text-align:center;padding:4px;background:#fdf8fc;}
+.product-card{background:#fff8fd;border:1px solid #f0dcea;border-radius:10px;padding:12px 15px;margin:10px 0;display:flex;align-items:flex-start;gap:12px;}
+.product-num{width:24px;height:24px;background:#E91E8C;color:#fff;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;flex-shrink:0;margin-top:2px;}
+.product-info{flex:1;}
+.product-name{font-size:14px;font-weight:700;color:#1a1018;margin-bottom:3px;}
+.product-detail{font-size:12px;color:#8a7080;margin-bottom:6px;}
+.product-link{display:inline-block;font-size:11px;color:#E91E8C;border:1px solid #E91E8C;border-radius:20px;padding:3px 10px;text-decoration:none;font-weight:600;}
+.product-link:hover{background:#E91E8C;color:#fff;}
+.text-box{background:#fdf8fc;border:1px solid #f0dcea;border-radius:10px;padding:16px;font-size:13px;line-height:1.9;color:#4a3a45;white-space:pre-wrap;max-height:400px;overflow-y:auto;}
+.copy-big{width:100%;margin-top:12px;padding:13px;background:#E91E8C;color:#fff;border:none;border-radius:10px;cursor:pointer;font-size:14px;font-weight:700;}
+.copy-big.done{background:#16a34a;}
+.guide-step{display:flex;align-items:flex-start;gap:12px;padding:12px 15px;background:#fff8fd;border:1px solid #f0dcea;border-radius:12px;margin-bottom:8px;}
+.step-num{width:26px;height:26px;background:#E91E8C;color:#fff;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700;flex-shrink:0;}
+.photo-gi{background:#fff;border:1px solid #f0dcea;border-radius:12px;padding:12px 15px;margin-bottom:8px;display:flex;gap:12px;}
+.insta-box{background:linear-gradient(135deg,#fdf0f8,#fff5fc);border:1px solid #f0dcea;border-radius:12px;padding:15px;margin-bottom:12px;}
+.tag-box{display:flex;flex-wrap:wrap;gap:6px;}
+.tag{font-size:12px;color:#E91E8C;background:#fdf0f8;padding:4px 10px;border-radius:20px;font-weight:500;}
+.err-box{padding:20px;color:#c91577;font-size:13px;background:#fff0f8;border-radius:12px;border:1px solid #f0dcea;text-align:center;}
+.empty-box{text-align:center;padding:40px;background:#fff;border-radius:16px;border:1px solid #f0dcea;}
+.badge-row{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:14px;}
+.badge{font-size:11px;padding:4px 10px;border-radius:20px;font-weight:600;}
+.admin-banner{background:linear-gradient(135deg,#fff8fd,#fdf0f8);border:1px solid #f0dcea;border-radius:12px;padding:14px 18px;margin-bottom:18px;display:flex;align-items:center;gap:12px;}
+.atab{padding:10px 18px;border:2px solid #ccc;border-radius:50px;background:#eee;color:#999;cursor:pointer;font-size:13px;font-weight:700;}
+.atab.on{background:#E91E8C;border-color:#E91E8C;color:#fff;}
+.tag-chip{display:inline-flex;align-items:center;gap:6px;background:#fdf0f8;border:1.5px solid #f0dcea;color:#E91E8C;font-size:13px;font-weight:600;padding:6px 12px;border-radius:50px;margin:0 8px 8px 0;}
+.tag-x{width:17px;height:17px;background:#f9d6ec;border:none;border-radius:50%;cursor:pointer;font-size:10px;color:#E91E8C;}
+.person-card{background:#fff;border:1px solid #f0dcea;border-radius:12px;padding:14px 16px;margin-bottom:10px;display:flex;justify-content:space-between;gap:10px;}
+.person-role{font-size:11px;background:#fdf0f8;color:#E91E8C;padding:2px 8px;border-radius:20px;font-weight:600;}
+.sm-btn{padding:6px 11px;border:1.5px solid #f0dcea;border-radius:8px;background:#fff;color:#4a3a45;cursor:pointer;font-size:12px;}
+.del-btn{padding:6px 11px;border:1.5px solid #fee2e2;border-radius:8px;background:#fff;color:#dc2626;cursor:pointer;font-size:12px;}
+.field{width:100%;border:1.5px solid #f0dcea;border-radius:8px;padding:10px 13px;font-size:14px;color:#1a1018;background:#fdf8fc;display:block;margin-bottom:10px;}
+.save-toast{margin-left:auto;font-size:13px;color:#16a34a;font-weight:700;}
+.share-bar{background:#fff8fd;border:1px solid #f0dcea;border-radius:12px;padding:14px 18px;margin-bottom:16px;display:flex;align-items:center;gap:12px;flex-wrap:wrap;}
+.share-link{flex:1;border:1.5px solid #f0dcea;border-radius:8px;padding:9px 13px;font-size:13px;color:#8a7080;background:#fdf8fc;font-family:inherit;}
+.share-btn{padding:9px 16px;background:#7c3aed;color:#fff;border:none;border-radius:8px;cursor:pointer;font-size:13px;font-weight:700;white-space:nowrap;}
+.share-btn:hover{background:#6d28d9;}
+.history-item{background:#fff;border:1px solid #f0dcea;border-radius:10px;padding:12px 15px;margin-bottom:8px;cursor:pointer;display:flex;justify-content:space-between;align-items:center;}
+.history-item:hover{background:#fdf0f8;border-color:#E91E8C;}
+.history-kw{font-size:14px;font-weight:600;color:#1a1018;}
+.history-meta{font-size:11px;color:#8a7080;margin-top:3px;}
+.pink-btn{padding:11px 22px;background:#E91E8C;color:#fff;border:none;border-radius:10px;cursor:pointer;font-size:14px;font-weight:700;}
+</style>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+</head>
+<body>
+<div class="header">
+  <div style="display:flex;align-items:center;gap:10px">
+    <div class="logo">P</div>
+    <div>
+      <div style="font-size:13px;font-weight:700;color:#1a1018">PBS COLOR LAB · SNS 생성기</div>
+      <div style="font-size:9px;color:#8a7080;letter-spacing:.06em;text-transform:uppercase">AI-Powered</div>
+    </div>
+  </div>
+  <div style="display:flex;gap:6px">
+    <button class="nav-btn on" id="btn-main" onclick="showPage('main')">✨ 생성</button>
+    <button class="nav-btn" id="btn-admin" onclick="showPage('admin')">⚙️ 관리자</button>
+  </div>
+</div>
+
+<div id="page-main" class="main">
+  <div class="apikey-banner" id="apikey-banner">
+    <span style="font-size:20px;flex-shrink:0">🔑</span>
+    <div style="flex:1"><div style="font-size:13px;font-weight:700;color:#1a1018;margin-bottom:3px">Anthropic API 키 입력</div><div style="font-size:11px;color:#8a7080">console.anthropic.com → API 키 → 키 생성</div></div>
+    <input class="apikey-input" id="apikey-input" type="password" placeholder="sk-ant-api03-..." onkeydown="if(event.key==='Enter')saveKey()">
+    <button class="apikey-save" onclick="saveKey()">저장</button>
+  </div>
+  <div class="badge-row" id="badge-row"></div>
+  <div class="card">
+    <span class="slabel">① 주제 / 키워드</span>
+    <textarea class="kw" id="kw" rows="2"
+      placeholder="예) 가을 딥다크 퍼스널컬러 코디&#10;💡 제품추천 포함하면 실제 제품 + 쇼핑링크도 나와요"
+      oninput="var v=this.value.trim();document.getElementById('gen-btn').disabled=!v;document.getElementById('hint').style.display=v?'none':'';"
+      onkeydown="if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();generate();}"></textarea>
+
+    <span class="slabel">② 사진 첨부 <span class="sublabel">(선택·최대 8장·AI가 본문에 자동 배치)</span></span>
+    <div class="drop-zone" onclick="document.getElementById('file-inp').click()" ondragover="event.preventDefault()" ondrop="event.preventDefault();addImgs(event.dataTransfer.files)">
+      <div style="font-size:22px">📷</div>
+      <div style="font-size:13px;color:#8a7080;margin-top:4px">클릭하거나 드래그 · 최대 8장</div>
+    </div>
+    <input type="file" id="file-inp" multiple accept="image/*" style="display:none" onchange="addImgs(this.files)">
+    <div class="img-grid" id="img-grid"></div>
+
+    <span class="slabel">③ 채널 선택 <span class="sublabel">핑크=선택됨 / 회색=미선택</span></span>
+    <div class="btn-row" id="ch-row">
+      <button class="ch-btn on" id="ch-blog" onclick="togCh('blog')">📝 네이버 블로그</button>
+      <button class="ch-btn on" id="ch-insta" onclick="togCh('insta')">📸 인스타그램</button>
+      <button class="ch-btn" id="ch-youtube" onclick="togCh('youtube')">🎬 유튜브 설명글</button>
+      <button class="ch-btn" id="ch-thread" onclick="togCh('thread')">🧵 스레드·X</button>
+      <button class="ch-btn" id="ch-kakao" onclick="togCh('kakao')">📌 카카오채널</button>
+    </div>
+
+    <span class="slabel">④ 말투 선택 <span class="sublabel">핑크=선택됨</span></span>
+    <div class="btn-row" id="tone-row"></div>
+
+    <button class="gen-btn" id="gen-btn" onclick="generate()" disabled>✨ 콘텐츠 자동 생성하기</button>
+    <div class="hint" id="hint">↑ 키워드를 먼저 입력해주세요</div>
+  </div>
+  <div id="result-area"></div>
+</div>
+
+<div id="page-admin" class="main" style="display:none">
+  <div class="admin-banner">
+    <span style="font-size:22px">⚙️</span>
+    <div><div style="font-size:14px;font-weight:700;color:#1a1018">관리자 설정</div><div style="font-size:12px;color:#8a7080">콘텐츠 생성 시 자동 반영</div></div>
+    <span class="save-toast" id="save-toast" style="display:none">✅ 저장됨</span>
+  </div>
+  <div style="display:flex;gap:8px;margin-bottom:18px;flex-wrap:wrap">
+    <button class="atab on" id="atab-ht" onclick="showATab('ht')"># 기본 해시태그</button>
+    <button class="atab" id="atab-br" onclick="showATab('br')">📋 브랜드 지침</button>
+    <button class="atab" id="atab-ps" onclick="showATab('ps')">👤 인물 등록</button>
+    <button class="atab" id="atab-hist" onclick="showATab('hist')">📋 생성 히스토리</button>
+  </div>
+  <div id="atab-ht-con"><div class="card">
+    <div style="font-size:14px;font-weight:700;color:#1a1018;margin-bottom:4px">기본 해시태그</div>
+    <div style="font-size:13px;color:#8a7080;margin-bottom:16px">인스타그램 생성 시 항상 포함</div>
+    <div style="display:flex;gap:8px;margin-bottom:16px">
+      <input id="tag-inp" type="text" placeholder="#PBS컬러랩" style="flex:1;border:1.5px solid #f0dcea;border-radius:10px;padding:10px 14px;font-size:14px;color:#1a1018;background:#fdf8fc;" onkeydown="if(event.key==='Enter')addTag()">
+      <button onclick="addTag()" class="pink-btn">추가</button>
+    </div>
+    <div id="tag-list"></div>
+    <div id="tag-count" style="margin-top:12px;font-size:12px;color:#c4a8bb"></div>
+  </div></div>
+  <div id="atab-br-con" style="display:none"><div class="card">
+    <div style="font-size:14px;font-weight:700;color:#1a1018;margin-bottom:4px">브랜드 지침</div>
+    <div style="font-size:13px;color:#8a7080;margin-bottom:16px">AI가 항상 따르는 규칙</div>
+    <textarea id="brand-txt" rows="10" class="field" placeholder="예시:&#10;- 타깃: 30~50대 자기계발에 관심 있는 여성&#10;- 마무리는 PBS COLOR LAB 예약 안내로 연결"></textarea>
+    <button onclick="saveBrand()" class="pink-btn">💾 저장하기</button>
+  </div></div>
+  <div id="atab-hist-con" style="display:none">
+    <div class="card">
+      <div style="font-size:14px;font-weight:700;color:#1a1018;margin-bottom:4px">생성 히스토리</div>
+      <div style="font-size:13px;color:#8a7080;margin-bottom:16px">최근 생성한 콘텐츠 · 클릭하면 다시 불러오기</div>
+      <button onclick="renderHistory()" class="pink-btn" style="margin-bottom:14px">🔄 새로고침</button>
+      <div id="history-list"><div style="text-align:center;padding:20px;color:#c4a8bb;font-size:13px">새로고침을 눌러주세요</div></div>
+    </div>
+  </div>
+  <div id="atab-ps-con" style="display:none">
+    <div class="card">
+      <div style="font-size:14px;font-weight:700;color:#1a1018;margin-bottom:4px" id="pform-title">새 인물 등록</div>
+      <div style="font-size:13px;color:#8a7080;margin-bottom:16px">AI가 그 사람의 경험과 전문성을 반영해요</div>
+      <span style="font-size:12px;font-weight:600;color:#8a7080;margin-bottom:5px;display:block">이름</span>
+      <input id="p-name" type="text" placeholder="예) 최해숙 대표" class="field">
+      <span style="font-size:12px;font-weight:600;color:#8a7080;margin-bottom:5px;display:block">역할/직책</span>
+      <input id="p-role" type="text" placeholder="예) PBS COLOR LAB 대표·색채 전문가" class="field">
+      <span style="font-size:12px;font-weight:600;color:#8a7080;margin-bottom:5px;display:block">소개</span>
+      <textarea id="p-desc" rows="2" placeholder="예) 20년+ 컬러 전문가" class="field"></textarea>
+      <div style="display:flex;gap:8px;margin-top:4px">
+        <button onclick="savePerson()" class="pink-btn" id="p-save-btn">➕ 등록하기</button>
+        <button onclick="cancelPEdit()" id="p-cancel-btn" style="display:none;padding:11px 18px;background:#fff;border:1.5px solid #f0dcea;border-radius:10px;cursor:pointer;font-size:14px;color:#4a3a45">취소</button>
+      </div>
+    </div>
+    <div id="persons-list"></div>
+  </div>
+</div>
+
+<script>
+// ── Supabase 설정 ──────────────────────────────
+var SB_URL = 'https://oqxlsnyuwtmjmbhgzjoz.supabase.co';
+var SB_KEY = 'sb_publishable_mn7lAEbiyw1ArefbUh9R7w_fZOdW5g0';
+var sbClient = null;
+function getSB() {
+  try {
+    if (!sbClient && typeof supabase !== 'undefined') {
+      sbClient = supabase.createClient(SB_URL, SB_KEY);
+    }
+    return sbClient;
+  } catch(e) { return null; }
+}
+
+// 결과 저장 & 공유링크 생성
+async function saveAndShare(r, kw, tone, channels) {
+  try {
+    var sb = getSB();
+    if (!sb) return null;  // Supabase 없으면 그냥 건너뜀
+    var payload = {
+      keyword: kw,
+      tone: tone,
+      channels: channels,
+      blog_title: r.blogTitle || null,
+      blog_hook: r.blogHook || null,
+      blog_body: r.blogBody || null,
+      insta_caption: r.instaCaption || null,
+      insta_hashtags: r.instaHashtags || null,
+      youtube_desc: r.youtubeDesc || null,
+      youtube_tags: r.youtubeTags || null,
+      thread_post: r.threadPost || null,
+      kakao_msg: r.kakaoMsg || null
+    };
+    var res = await sb.from('sns_contents').insert(payload).select('share_id').single();
+    if (res.error) throw res.error;
+    return res.data.share_id;
+  } catch(e) {
+    console.error('저장 오류:', e);
+    return null;
+  }
+}
+
+// 공유 ID로 결과 불러오기
+async function loadByShareId(shareId) {
+  try {
+    var sb = getSB();
+    var res = await sb.from('sns_contents').select('*').eq('share_id', shareId).single();
+    if (res.error) throw res.error;
+    return res.data;
+  } catch(e) {
+    return null;
+  }
+}
+
+// 최근 생성 히스토리 불러오기
+async function loadHistory() {
+  try {
+    var sb = getSB();
+    var res = await sb.from('sns_contents').select('id,created_at,keyword,tone,channels,share_id').order('created_at', {ascending:false}).limit(20);
+    if (res.error) throw res.error;
+    return res.data;
+  } catch(e) {
+    return [];
+  }
+}
+
+var cfg = {
+  hashtags:['#퍼스널컬러','#퍼스널컬러진단','#PBScolorlab','#컬러강점','#오행컬러','#색채심리','#퍼스널스타일링','#컬러컨설팅'],
+  brandGuide:'- PBS COLOR LAB은 색으로 나를 발견하는 여정을 제공합니다\n- 독자가 행동 욕구를 느끼도록 작성하세요\n- 마무리는 PBS COLOR LAB 진단 예약으로 연결하세요',
+  persons:[{name:'최해숙 대표',role:'PBS COLOR LAB 대표',desc:'20년+ 색채 교육·컨설팅 전문가. 따뜻하고 신뢰감 있는 이미지.'}]
+};
+var TONES = {
+  warm:'따뜻하고 친근한 언니 말투 — 자연스러운 구어체',
+  elegant:'세련되고 신뢰감 있는 전문가 말투',
+  friendly:'카톡 보내듯 편한 말투 — 구어체',
+  educational:'친절한 강사 말투 — 단계별 설명',
+  business:'비즈니스 공식 말투 — 격식 있고 신뢰감 있는 전문 기업 스타일',
+  authority:'권위 있는 전문가 말투 — 데이터와 근거 중심, 확신 있는 어조',
+  poetic:'감성적이고 시적인 말투 — 아름다운 표현과 감성 자극',
+  trendy:'트렌디한 MZ세대 말투 — 짧고 임팩트 있게, 유행어와 이모지 활용'
+};
+var TLABELS = {warm:'🌸 친근한 언니',elegant:'✨ 세련된 전문가',friendly:'💬 편한 친구',educational:'📚 친절한 강사',business:'💼 비즈니스',authority:'🎓 권위있는 전문가',poetic:'💝 감성·시적',trendy:'🔥 트렌디·MZ'};
+var curTone = 'warm';
+
+// 채널 상태 - 독립적으로 관리
+var CH = {blog:true, insta:true, youtube:false, thread:false, kakao:false};
+
+var imgs = [];
+var editPIdx = null;
+
+// 초기화
+async function init() {
+  try { var r = await window.storage.get('pbs_cfg5'); if (r&&r.value) cfg = Object.assign({},cfg,JSON.parse(r.value)); } catch(e){}
+  var key = localStorage.getItem('pbs_api_key')||'';
+  if (key) document.getElementById('apikey-banner').style.display='none';
+  renderTones();
+  renderCh(); // 채널 버튼 상태 초기화
+  renderBadges();
+  renderTagList();
+  renderPersonsList();
+  document.getElementById('brand-txt').value = cfg.brandGuide||'';
+  checkShareParam();
+}
+
+async function saveCfg() {
+  try { await window.storage.set('pbs_cfg5', JSON.stringify(cfg)); } catch(e){}
+  renderBadges();
+  var t = document.getElementById('save-toast');
+  t.style.display='block';
+  setTimeout(function(){ t.style.display='none'; }, 2000);
+}
+
+function saveKey() {
+  var k = document.getElementById('apikey-input').value.trim();
+  if (!k||!k.startsWith('sk-')) { alert('올바른 API 키를 입력해주세요 (sk-ant-api03-... 형식)'); return; }
+  localStorage.setItem('pbs_api_key', k);
+  document.getElementById('apikey-banner').style.display='none';
+}
+function getKey() { return localStorage.getItem('pbs_api_key')||''; }
+
+function showPage(p) {
+  document.getElementById('page-main').style.display = p==='main'?'':'none';
+  document.getElementById('page-admin').style.display = p==='admin'?'':'none';
+  document.getElementById('btn-main').className = 'nav-btn'+(p==='main'?' on':'');
+  document.getElementById('btn-admin').className = 'nav-btn'+(p==='admin'?' on':'');
+}
+function showATab(t) {
+  ['ht','br','ps','hist'].forEach(function(k){
+    document.getElementById('atab-'+k+'-con').style.display = k===t?'':'none';
+    document.getElementById('atab-'+k).className = 'atab'+(k===t?' on':'');
+  });
+}
+function renderBadges() {
+  var r = document.getElementById('badge-row');
+  r.innerHTML = '';
+  if (cfg.hashtags&&cfg.hashtags.length) r.innerHTML += '<span class="badge" style="background:#e8f5e9;color:#2e7d32">기본 해시태그 '+cfg.hashtags.length+'개</span>';
+  if (cfg.brandGuide) r.innerHTML += '<span class="badge" style="background:#e3f2fd;color:#1565c0">브랜드 지침 적용중</span>';
+  if (cfg.persons&&cfg.persons.length) r.innerHTML += '<span class="badge" style="background:#fce4ec;color:#880e4f">인물 '+cfg.persons.length+'명</span>';
+}
+function renderTones() {
+  var r = document.getElementById('tone-row');
+  r.innerHTML = '';
+  Object.keys(TLABELS).forEach(function(k){
+    var b = document.createElement('button');
+    b.className = 'tone-btn'+(k===curTone?' on':'');
+    b.textContent = TLABELS[k];
+    b.onclick = function(){ curTone=k; renderTones(); };
+    r.appendChild(b);
+  });
+}
+
+// 채널 버튼 상태를 CH 객체에서 렌더링
+function renderCh() {
+  Object.keys(CH).forEach(function(k){
+    var btn = document.getElementById('ch-'+k);
+    if (btn) btn.className = 'ch-btn'+(CH[k]?' on':'');
+  });
+}
+
+// 채널 토글 - blog/insta 중 최소 1개 유지
+function togCh(ch) {
+  // 현재 켜진 채널 수 확인
+  var onCount = Object.keys(CH).filter(function(k){ return CH[k]; }).length;
+  // 마지막 하나 남은 채널은 끌 수 없음
+  if (CH[ch] && onCount === 1) return;
+  CH[ch] = !CH[ch];
+  var btn = document.getElementById('ch-'+ch);
+  if (btn) btn.className = 'ch-btn'+(CH[ch]?' on':'');
+}
+
+function addImgs(files) {
+  Array.from(files).filter(function(f){return f.type.startsWith('image/');}).forEach(function(f){
+    if (imgs.length>=8) return;
+    var rd = new FileReader();
+    rd.onload = function(e){ imgs.push({du:e.target.result,b64:e.target.result.split(',')[1],mime:f.type}); renderImgs(); };
+    rd.readAsDataURL(f);
+  });
+}
+function removeImg(i){ imgs.splice(i,1); renderImgs(); }
+function renderImgs() {
+  var g = document.getElementById('img-grid');
+  g.innerHTML='';
+  imgs.forEach(function(img,i){
+    var d=document.createElement('div'); d.className='img-thumb';
+    var im=document.createElement('img'); im.src=img.du;
+    var nd=document.createElement('div'); nd.className='img-num'; nd.textContent='사진'+(i+1);
+    var btn=document.createElement('button'); btn.className='img-del'; btn.textContent='✕';
+    btn.setAttribute('data-i',i);
+    btn.onclick=function(){ removeImg(parseInt(this.getAttribute('data-i'))); };
+    d.appendChild(im); d.appendChild(nd); d.appendChild(btn); g.appendChild(d);
+  });
+}
+
+// Unsplash 관련 이미지 (키워드 기반)
+function getImgKeyword(kw) {
+  var map = {'퍼스널컬러':'personal color beauty','가을':'autumn beauty makeup','봄':'spring makeup beauty','여름':'summer beauty','겨울':'winter beauty','웜톤':'warm toned makeup','쿨톤':'cool toned makeup','립스틱':'lipstick makeup','화장품':'korean cosmetics','코디':'fashion outfit style','딥다크':'dark makeup dramatic','블러셔':'blush makeup','아이섀도':'eye shadow makeup'};
+  for (var k in map) { if (kw.indexOf(k)>=0) return map[k]; }
+  return 'beauty makeup korean';
+}
+
+async function generate() {
+  var kw = document.getElementById('kw').value.trim();
+  if (!kw) return;
+  if (!getKey()) { document.getElementById('apikey-banner').style.display=''; alert('API 키를 먼저 입력해주세요!'); return; }
+
+  var selectedChs = Object.keys(CH).filter(function(k){return CH[k];});
+  var chLabels = {blog:'블로그', insta:'인스타그램', youtube:'유튜브', thread:'스레드·X', kakao:'카카오채널'};
+  var loadMsg = selectedChs.map(function(k){return chLabels[k];}).join(', ')+' 콘텐츠 생성 중...';
+
+  document.getElementById('result-area').innerHTML = '<div class="loading"><div class="spinner"></div><div style="font-size:14px;color:#8a7080">'+loadMsg+'</div></div>';
+  document.getElementById('gen-btn').disabled=true;
+  document.getElementById('gen-btn').textContent='생성 중...';
+
+  var td = TONES[curTone];
+  var pc = cfg.persons&&cfg.persons.length ? '\n인물: '+cfg.persons.map(function(p){return p.name+'('+p.role+'): '+p.desc;}).join('; ') : '';
+  var bc = cfg.brandGuide ? '\n[브랜드 지침]\n'+cfg.brandGuide : '';
+  var pi = imgs.length ? '\n사진 '+imgs.length+'장 첨부. 어울리는 위치에 [사진1], [사진2] 형식으로 배치하세요.' : '';
+  var isProduct = kw.indexOf('제품추천')>=0 || kw.indexOf('제품 추천')>=0;
+  var pd = isProduct ? '\n\n[제품 추천 필수] 실제 판매 중인 뷰티 제품 5개를 정확한 제품명으로 추천. 반드시 아래 형식으로:\n[PRODUCT_START]\n1. 실제제품명 전체명칭 (실제가격원)\n브랜드명 | 구매처: 올리브영/백화점/공식몰\n추천이유: 한 줄\n2. 실제제품명 전체명칭 (실제가격원)\n브랜드명 | 구매처: 올리브영/공식몰\n추천이유: 한 줄\n[PRODUCT_END]\n주의: 실제 존재하는 제품명(예: 맥 루비 우, 롬앤 쥬시 래스팅 틴트 #23, 3CE 벨벳 립 틴트 등)으로 5개 작성. 색상 이름만 적는 것 절대 금지.' : '';
+  var tags = (cfg.hashtags||[]).join(' ');
+
+  var prompts = [];
+  if (CH.blog) prompts.push('당신은 네이버 블로그 퍼스널컬러 전문 블로거입니다.'+pc+bc+'\n주제: "'+kw+'" 말투: '+td+pi+pd+'\n제목은 SEO 최적화, 후킹은 공감형, 본론은 ★소제목 3~4개, 분량 900~1100자, 마무리는 PBS COLOR LAB CTA.\n마크다운 **굵은글씨** 사용 가능, --- 구분선 사용 가능.\n\n[BLOG_TITLE]\n제목\n[BLOG_HOOK]\n후킹 오프닝\n[BLOG_BODY]\n본론+마무리');
+  if (CH.insta) prompts.push('PBS COLOR LAB 인스타그램 전문가입니다.'+pc+bc+'\n주제: "'+kw+'" 말투: '+td+pd+'\n첫줄 이모지+후킹, 3~5줄 핵심, CTA 마무리.\n기본태그: '+tags+' 포함 총 22~25개\n\n[INSTA_CAPTION]\n캡션\n[INSTA_HASHTAGS]\n해시태그\n[INSTA_PRODUCT_START]\n제품추천 포함시 위와 같은 형식으로\n[INSTA_PRODUCT_END]');
+  if (CH.youtube) prompts.push('PBS COLOR LAB 유튜브 설명글 전문가입니다.'+pc+bc+'\n주제: "'+kw+'" 말투: '+td+pd+'\n첫 3줄 후킹+키워드, 영상 내용 요약, 구독/좋아요 CTA, 해시태그 10~15개.\n마크다운 **굵은글씨**, ## 제목 사용 가능.\n\n[YOUTUBE_DESC]\n설명글\n[YOUTUBE_TAGS]\n해시태그');
+  if (CH.thread) prompts.push('PBS COLOR LAB 스레드·X 전문가입니다.'+pc+bc+'\n주제: "'+kw+'" 말투: '+td+(isProduct?'\n제품 1개 간단 언급 가능.':'')+'\n280자 이내, 임팩트 있는 첫 문장, 핵심 3포인트. 마크다운 기호(**,##) 사용 금지.\n\n[THREAD_POST]\n게시글');
+  if (CH.kakao) prompts.push('PBS COLOR LAB 카카오채널 전문가입니다.'+pc+bc+'\n주제: "'+kw+'" 말투: '+td+(isProduct?'\n제품 1~2개 간단 언급 가능.':'')+'\n친근하고 짧게, 이모지 활용, CTA 포함. 마크다운 기호 사용 금지.\n\n[KAKAO_MSG]\n메시지');
+
+  var parts = [{type:'text',text:prompts.join('\n\n---\n\n')}];
+  imgs.forEach(function(img){ parts.push({type:'image',source:{type:'base64',media_type:img.mime,data:img.b64}}); });
+
+  try {
+    var res = await fetch('https://api.anthropic.com/v1/messages',{
+      method:'POST',
+      headers:{'Content-Type':'application/json','x-api-key':getKey(),'anthropic-version':'2023-06-01','anthropic-dangerous-direct-browser-access':'true'},
+      body:JSON.stringify({model:'claude-haiku-4-5-20251001',max_tokens:2500,messages:[{role:'user',content:parts}]})
+    });
+    var data = await res.json();
+    if (!data.content||!data.content[0]) {
+      if (res.status===401) { document.getElementById('apikey-banner').style.display=''; }
+      throw new Error(JSON.stringify(data).slice(0,300));
+    }
+    var txt = data.content[0].text;
+    function g(re){ var m=txt.match(re); return m?m[1].trim():''; }
+    var onChs = Object.keys(CH).filter(function(k){return CH[k];});
+    var rawTxt = txt.replace(/\[\w+_?\w*\]/g,'').trim();
+    var imgKw = getImgKeyword(kw);
+    var currentKw = kw;
+    var currentTone = curTone;
+    var currentChannels = Object.keys(CH).filter(function(k){return CH[k];});
+    renderResult({
+      blogTitle: g(/\[BLOG_TITLE\]([\s\S]*?)(?=\[BLOG_HOOK\])/),
+      blogHook:  g(/\[BLOG_HOOK\]([\s\S]*?)(?=\[BLOG_BODY\])/),
+      blogBody:  g(/\[BLOG_BODY\]([\s\S]*?)(?=\[INSTA_CAPTION\]|\[YOUTUBE_DESC\]|\[THREAD_POST\]|\[KAKAO_MSG\]|$)/),
+      products:  g(/\[PRODUCT_START\]([\s\S]*?)\[PRODUCT_END\]/),
+      instaCaption:  g(/\[INSTA_CAPTION\]([\s\S]*?)(?=\[INSTA_HASHTAGS\])/),
+      instaHashtags: g(/\[INSTA_HASHTAGS\]([\s\S]*?)(?=\[INSTA_PRODUCT_START\]|\[YOUTUBE_DESC\]|\[THREAD_POST\]|\[KAKAO_MSG\]|$)/),
+      instaProducts: g(/\[INSTA_PRODUCT_START\]([\s\S]*?)\[INSTA_PRODUCT_END\]/),
+      youtubeDesc: g(/\[YOUTUBE_DESC\]([\s\S]*?)(?=\[YOUTUBE_TAGS\])/) || (CH.youtube && onChs.length===1 ? rawTxt : ''),
+      youtubeTags: g(/\[YOUTUBE_TAGS\]([\s\S]*?)(?=\[THREAD_POST\]|\[KAKAO_MSG\]|$)/),
+      threadPost:  g(/\[THREAD_POST\]([\s\S]*?)(?=\[KAKAO_MSG\]|$)/) || (CH.thread && onChs.length===1 ? rawTxt : ''),
+      kakaoMsg:    g(/\[KAKAO_MSG\]([\s\S]*?)$/) || (CH.kakao && onChs.length===1 ? rawTxt : ''),
+      imgKw: imgKw,
+      isProduct: isProduct
+    });
+    // Supabase에 자동 저장
+    var savedResult = arguments[0] || {};
+    saveAndShare(savedResult, currentKw, currentTone, currentChannels).then(function(shareId) {
+      if (shareId) {
+        var shareUrl = window.location.origin + window.location.pathname + '?share=' + shareId;
+        var sharebar = document.createElement('div');
+        sharebar.className = 'share-bar';
+        sharebar.innerHTML = '<span style="font-size:18px">🔗</span>'
+          + '<div style="flex:1"><div style="font-size:13px;font-weight:700;color:#1a1018;margin-bottom:3px">공유 링크가 생성됐어요!</div>'
+          + '<div style="font-size:11px;color:#8a7080">링크를 복사해서 카카오톡으로 공유하세요</div></div>'
+          + '<input class="share-link" id="share-url-inp" value="'+shareUrl+'" readonly>'
+          + '<button class="share-btn" onclick="cpShareLink()">🔗 링크 복사</button>';
+        document.getElementById('result-area').insertBefore(sharebar, document.getElementById('result-area').firstChild);
+      }
+    });
+  } catch(e) {
+    document.getElementById('result-area').innerHTML='<div class="err-box">오류가 발생했어요. 다시 시도해주세요.<br><small>'+e.message+'</small></div>';
+  }
+  document.getElementById('gen-btn').disabled=false;
+  document.getElementById('gen-btn').textContent='✨ 콘텐츠 다시 생성하기';
+}
+
+function esc(s){ return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+
+// 마크다운 → HTML 변환
+function md(text) {
+  return esc(text)
+    .replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>')
+    .replace(/\*([^*]+)\*/g, '<em>$1</em>');
+}
+
+function buildCopy(r) {
+  var t = r.blogTitle+'\n\n'+r.blogHook+'\n\n'+r.blogBody;
+  // 사진 마커 변환
+  t = t.replace(/\[사진(\d+)\]([^\n]*)/g, function(_,n,c){ return '\n📷 --- 사진 '+n+'번 여기에 삽입'+(c.trim() ? ' ('+c.trim()+')' : '')+' ---\n'; });
+  return t;
+}
+
+// 제품 파싱 및 렌더링
+// 텍스트에서 제품 자동 추출 (번호. 제품명 패턴)
+function extractProducts(text) {
+  var products = [];
+  var lines = text.split('\n');
+  var cur = null;
+  lines.forEach(function(line) {
+    var m = line.match(/^(\d+)[.)\s]+([가-힣a-zA-Z0-9\s()#\-_&]+(?:\([^)]*원[^)]*\)|\([^)]*\d{3,}[^)]*\))?)/);
+    if (m && m[2].length > 3) {
+      if (cur) products.push(cur);
+      cur = { name: m[2].trim(), brand: '', reason: '' };
+    } else if (cur) {
+      if (line.match(/브랜드|Brand/)) cur.brand = line.replace(/.*[:|]\s*/, '').trim();
+      else if (line.match(/추천이유|이유|Reason/)) cur.reason = line.replace(/.*[:|]\s*/, '').trim();
+      else if (!cur.brand && line.trim() && line.length < 60) cur.brand = line.replace(/^[-·•]\s*/, '').trim();
+    }
+  });
+  if (cur) products.push(cur);
+  return products.filter(function(p) { return p.name.length > 2; });
+}
+
+function renderProducts(productText, kw) {
+  if (!productText) return '';
+  var html = '<div style="margin:16px 0"><div style="font-size:13px;font-weight:700;color:#E91E8C;margin-bottom:10px">★ 추천 제품</div>';
+  var lines = productText.split('\n').filter(function(l){return l.trim();});
+  var products = [];
+  var cur = null;
+  lines.forEach(function(line){
+    var m = line.match(/^(\d+)\.\s+(.+)/);
+    if (m) {
+      if (cur) products.push(cur);
+      cur = {name:m[2], brand:'', reason:''};
+    } else if (cur && line.indexOf('브랜드') >= 0) {
+      cur.brand = line.replace(/^브랜드명?\s*[:|]\s*/,'').trim();
+    } else if (cur && line.indexOf('추천이유') >= 0) {
+      cur.reason = line.replace(/^추천이유\s*[:|]\s*/,'').trim();
+    } else if (cur && !cur.brand && line.trim()) {
+      cur.brand = line.trim();
+    }
+  });
+  if (cur) products.push(cur);
+
+  if (!products.length) {
+    // 파싱 실패시 원본 텍스트 표시
+    html += '<div style="font-size:13px;line-height:1.9;color:#4a3a45;white-space:pre-wrap">'+esc(productText)+'</div>';
+  } else {
+    products.forEach(function(p, i){
+      var searchQ = encodeURIComponent(p.name.replace(/\([^)]*\)/g,'').trim());
+      var naverLink = 'https://search.shopping.naver.com/search/all?query='+searchQ;
+      html += '<div class="product-card"><div class="product-num">'+(i+1)+'</div><div class="product-info"><div class="product-name">'+esc(p.name)+'</div>';
+      if (p.brand) html += '<div class="product-detail">'+esc(p.brand)+'</div>';
+      if (p.reason) html += '<div style="font-size:12px;color:#4a3a45;margin-bottom:6px">'+esc(p.reason)+'</div>';
+      html += '<a href="'+naverLink+'" target="_blank" class="product-link">🛒 네이버쇼핑에서 보기</a>';
+      html += '</div></div>';
+    });
+  }
+  html += '</div>';
+  return html;
+}
+
+// 관련 이미지 (Unsplash)
+function renderRelatedImgs(imgKw) {
+  var k = encodeURIComponent(imgKw);
+  var imgs = [
+    'https://source.unsplash.com/600x400/?'+k+'&sig='+Date.now(),
+    'https://source.unsplash.com/600x400/?'+k+'&sig='+(Date.now()+1)
+  ];
+  var html = '<div style="margin:16px 0"><div style="font-size:11px;font-weight:700;color:#8a7080;text-transform:uppercase;letter-spacing:.08em;margin-bottom:8px">📸 관련 이미지 (Unsplash 제공)</div><div class="related-imgs">';
+  imgs.forEach(function(src,i){
+    html += '<div class="related-img"><img src="'+src+'" alt="관련이미지'+(i+1)+'" onerror="this.parentElement.style.display=\'none\'"><div class="related-img-label">이미지 '+(i+1)+'번 · 우클릭→저장</div></div>';
+  });
+  html += '</div></div>';
+  return html;
+}
+
+function renderBlogBody(body) {
+  var parts = body.split(/(\[사진\d+\][^\n]*)/);
+  var html = '';
+  parts.forEach(function(part){
+    var m = part.match(/^\[사진(\d+)\](.*)/);
+    if (m) {
+      var img = imgs[parseInt(m[1])-1];
+      if (img) html += '<img class="photo-real" src="'+img.du+'">';
+      else html += '<div class="photo-ph">📷 사진 '+m[1]+'번 위치'+(m[2].trim()?' · '+esc(m[2].trim()):'')+'</div>';
+    } else {
+      part.split('\n').forEach(function(line){
+        if (line.startsWith('★')) {
+          html += '<span class="blog-h3">'+md(line)+'</span>';
+        } else if (line.match(/^-{3,}$/)) {
+          html += '<hr class="blog-divider">';
+        } else if (!line.trim()) {
+          html += '<div style="height:8px"></div>';
+        } else {
+          html += '<p class="blog-p">'+md(line)+'</p>';
+        }
+      });
+    }
+  });
+  return html;
+}
+
+var cpTimers = {};
+function cpShareLink() {
+  var inp = document.getElementById('share-url-inp');
+  if (!inp) return;
+  navigator.clipboard.writeText(inp.value).then(function(){
+    var btn = document.querySelector('.share-btn');
+    if (btn) { btn.textContent = '✅ 복사완료'; setTimeout(function(){ btn.textContent = '🔗 링크 복사'; }, 2000); }
+  });
+}
+
+// URL에 share 파라미터 있으면 자동 로드
+async function checkShareParam() {
+  try {
+  var params = new URLSearchParams(window.location.search);
+  var shareId = params.get('share');
+  if (shareId) {
+    document.getElementById('result-area').innerHTML = '<div class="loading"><div class="spinner"></div><div style="font-size:14px;color:#8a7080">공유된 콘텐츠 불러오는 중...</div></div>';
+    await loadHistoryItem(shareId);
+  }
+  } catch(e) {}
+}
+function cpText(id,text){
+  navigator.clipboard.writeText(text).then(function(){
+    var btn=document.getElementById(id);
+    if(btn){btn.classList.add('done');btn.textContent='✅ 복사완료';}
+    clearTimeout(cpTimers[id]);
+    cpTimers[id]=setTimeout(function(){var b=document.getElementById(id);if(b){b.classList.remove('done');b.textContent='📋 복사';}},2500);
+  });
+}
+
+function showView(v){
+  ['preview','guide','text'].forEach(function(k){
+    var el=document.getElementById('view-'+k); if(el) el.style.display=k===v?'':'none';
+  });
+  document.querySelectorAll('.vtab').forEach(function(b){ b.className='vtab'+(b.getAttribute('data-v')===v?' on':''); });
+}
+
+function renderResult(r){
+  arguments[0] = r;  // 저장용 참조
+  var html='';
+
+  if (CH.blog && r.blogBody) {
+    var copyTxt = r.blogTitle+'\n\n'+r.blogHook+'\n\n'+r.blogBody;
+    var cpEnc = encodeURIComponent(copyTxt);
+    html += '<div class="result-card">';
+    html += '<div class="rhead"><div style="display:flex;align-items:center"><span class="rlabel">📝 블로그</span><span class="rpill" style="background:#E91E8C">네이버</span>'+(imgs.length?'<span class="rpill" style="background:#2e7d32">사진 '+imgs.length+'장</span>':'')+'</div><button class="cp-btn" id="cp-blog" onclick="cpText(\'cp-blog\',decodeURIComponent(\''+cpEnc+'\'))">📋 복사</button></div>';
+    html += '<div class="vtab-row"><button class="vtab on" data-v="preview" onclick="showView(\'preview\')">미리보기</button>'+(imgs.length?'<button class="vtab" data-v="guide" onclick="showView(\'guide\')">업로드 가이드</button>':'')+'<button class="vtab" data-v="text" onclick="showView(\'text\')">텍스트 복사용</button></div>';
+
+    // 미리보기
+    var prevHtml = '<div class="blog-title">'+esc(r.blogTitle)+'</div>';
+    if (r.blogHook) prevHtml += '<div class="blog-hook">'+md(r.blogHook)+'</div>';
+    prevHtml += '<div>'+renderBlogBody(r.blogBody)+'</div>';
+    // 제품 추천: [PRODUCT_START] 태그 또는 블로그 본문에서 자동 추출
+    if (r.isProduct) {
+      var productSrc = r.products || r.blogBody;
+      var autoProducts = extractProducts(productSrc);
+      if (autoProducts.length >= 2) {
+        var pHtml = '<div style="margin:16px 0"><div style="font-size:13px;font-weight:700;color:#E91E8C;margin-bottom:10px">★ 추천 제품 · 쇼핑 링크</div>';
+        autoProducts.slice(0,6).forEach(function(p, i) {
+          var searchQ = encodeURIComponent(p.name.replace(/\([^)]*\)/g,'').trim());
+          var naverLink = 'https://search.shopping.naver.com/search/all?query=' + searchQ;
+          pHtml += '<div class="product-card"><div class="product-num">'+(i+1)+'</div><div class="product-info">';
+          pHtml += '<div class="product-name">'+esc(p.name)+'</div>';
+          if (p.brand) pHtml += '<div class="product-detail">'+esc(p.brand)+'</div>';
+          if (p.reason) pHtml += '<div style="font-size:12px;color:#4a3a45;margin-bottom:6px">'+esc(p.reason)+'</div>';
+          pHtml += '<a href="'+naverLink+'" target="_blank" class="product-link">🛒 네이버쇼핑에서 보기</a>';
+          pHtml += '</div></div>';
+        });
+        pHtml += '</div>';
+        prevHtml += pHtml;
+      }
+    }
+    prevHtml += renderRelatedImgs(r.imgKw);
+    prevHtml += '<button class="copy-big" id="cp-blog2" onclick="cpText(\'cp-blog2\',decodeURIComponent(\''+cpEnc+'\'))">📋 네이버 블로그용 텍스트 복사하기</button>';
+    html += '<div id="view-preview" class="rbody">'+prevHtml+'</div>';
+
+    // 업로드 가이드
+    if (imgs.length) {
+      var gdHtml = '<p style="font-size:14px;font-weight:700;color:#1a1018;margin-bottom:12px">네이버 블로그 업로드 순서</p>';
+      ['텍스트 복사용 탭 → 전체 복사 → 네이버 에디터에 붙여넣기','📷 --- 사진 N번 --- 위치에 사진 삽입','안내 문구 삭제 후 발행'].forEach(function(s,i){
+        gdHtml += '<div class="guide-step"><div class="step-num">'+(i+1)+'</div><div style="font-size:13px;color:#4a3a45;padding-top:2px">'+s+'</div></div>';
+      });
+      imgs.forEach(function(img,i){
+        gdHtml += '<div class="photo-gi"><img src="'+img.du+'" style="width:68px;height:68px;object-fit:cover;border-radius:8px;flex-shrink:0"><div><span style="background:#E91E8C;color:#fff;font-size:12px;font-weight:700;padding:3px 10px;border-radius:20px;display:inline-block;margin-bottom:6px">사진 '+(i+1)+'번</span><div style="font-size:13px;color:#4a3a45">📷 --- 사진 '+(i+1)+'번 여기에 삽입 --- 위치에 올려주세요.</div></div></div>';
+      });
+      html += '<div id="view-guide" class="rbody" style="display:none">'+gdHtml+'</div>';
+    }
+
+    // 텍스트
+    var txtHtml = (imgs.length?'<p style="font-size:13px;color:#E91E8C;font-weight:600;margin-bottom:10px">📷 --- 사진 N번 --- 표시 위치에 사진을 넣어주세요.</p>':'');
+    txtHtml += '<div class="text-box">'+esc(copyTxt)+'</div>';
+    txtHtml += '<button class="copy-big" id="cp-blog3" onclick="cpText(\'cp-blog3\',decodeURIComponent(\''+cpEnc+'\'))" style="margin-top:12px">📋 전체 복사하기</button>';
+    html += '<div id="view-text" class="rbody" style="display:none">'+txtHtml+'</div>';
+    html += '</div>';
+  }
+
+  if (CH.insta && r.instaCaption) {
+    // 인스타는 마크다운 기호 제거
+    var cleanCaption = r.instaCaption.replace(/\*\*/g,'').replace(/\*/g,'').replace(/^#+\s*/gm,'').trim();
+    var cleanTags = r.instaHashtags.replace(/^#+\s*/gm,'').trim();
+    var ic = cleanCaption+'\n\n'+cleanTags;
+    var tags = cleanTags.split(/\s+/).filter(function(t){return t.startsWith('#');});
+    html += '<div class="result-card"><div class="rhead"><div style="display:flex;align-items:center"><span class="rlabel">📸 인스타그램</span><span class="rpill" style="background:#E1306C">Instagram</span></div><button class="cp-btn" id="cp-insta" onclick="cpText(\'cp-insta\',decodeURIComponent(\''+encodeURIComponent(ic)+'\'))">📋 복사</button></div>';
+    var instaProductHtml = (r.isProduct && r.instaProducts) ? renderProducts(r.instaProducts, r.imgKw) : '';
+    html += '<div class="rbody"><div class="insta-box"><div style="font-size:10px;font-weight:700;color:#8a7080;text-transform:uppercase;margin-bottom:7px">캡션</div><div style="font-size:14px;line-height:1.85;color:#4a3a45;white-space:pre-wrap">'+esc(cleanCaption)+'</div></div>'+instaProductHtml+'<div style="font-size:10px;font-weight:700;color:#8a7080;text-transform:uppercase;margin-bottom:9px">해시태그</div><div class="tag-box">'+tags.map(function(t){return '<span class="tag">'+esc(t)+'</span>';}).join('')+'</div></div></div>';
+  }
+
+  if (CH.youtube && r.youtubeDesc) {
+    var ytc = r.youtubeDesc+'\n\n'+r.youtubeTags;
+    var ytags = r.youtubeTags.split(/\s+/).filter(function(t){return t.startsWith('#');});
+    // 유튜브 마크다운 처리
+    var ytBody = r.youtubeDesc.split('\n').map(function(line){
+      if (line.match(/^#{1,3}\s/)) return '<p style="font-size:15px;font-weight:700;color:#1a1018;margin:12px 0 6px">'+md(line.replace(/^#{1,3}\s/,''))+'</p>';
+      if (line.match(/^-{3,}$/)) return '<hr style="border:none;border-top:1px solid #f0dcea;margin:10px 0">';
+      if (!line.trim()) return '<div style="height:6px"></div>';
+      return '<p style="font-size:14px;line-height:1.85;color:#4a3a45;margin:0 0 3px">'+md(line)+'</p>';
+    }).join('');
+    var ytProductHtml = (r.isProduct && r.products) ? renderProducts(r.products, r.imgKw) : '';
+    html += '<div class="result-card"><div class="rhead"><div style="display:flex;align-items:center"><span class="rlabel">🎬 유튜브</span><span class="rpill" style="background:#FF0000">YouTube</span></div><button class="cp-btn" id="cp-yt" onclick="cpText(\'cp-yt\',decodeURIComponent(\''+encodeURIComponent(ytc)+'\'  ))">📋 복사</button></div>';
+    html += '<div class="rbody"><div class="insta-box">'+ytBody+'</div>'+ytProductHtml+(ytags.length?'<div style="font-size:10px;font-weight:700;color:#8a7080;text-transform:uppercase;margin-bottom:9px">해시태그</div><div class="tag-box">'+ytags.map(function(t){return '<span class="tag">'+esc(t)+'</span>';}).join('')+'</div>':'')+'</div></div>';
+  }
+
+  if (CH.thread && r.threadPost) {
+    var cleanThread = r.threadPost.replace(/\*\*/g,'').replace(/\*/g,'').trim();
+    html += '<div class="result-card"><div class="rhead"><div style="display:flex;align-items:center"><span class="rlabel">🧵 스레드·X</span><span class="rpill" style="background:#000">X</span></div><button class="cp-btn" id="cp-th" onclick="cpText(\'cp-th\',decodeURIComponent(\''+encodeURIComponent(cleanThread)+'\'))">📋 복사</button></div><div class="rbody"><div class="insta-box"><div style="font-size:14px;line-height:1.85;color:#4a3a45;white-space:pre-wrap">'+esc(cleanThread)+'</div></div></div></div>';
+  }
+
+  if (CH.kakao && r.kakaoMsg) {
+    var cleanKakao = r.kakaoMsg.replace(/\*\*/g,'').replace(/\*/g,'').trim();
+    html += '<div class="result-card"><div class="rhead"><div style="display:flex;align-items:center"><span class="rlabel">📌 카카오채널</span><span class="rpill" style="background:#FEE500;color:#000">kakao</span></div><button class="cp-btn" id="cp-kk" onclick="cpText(\'cp-kk\',decodeURIComponent(\''+encodeURIComponent(cleanKakao)+'\'))">📋 복사</button></div><div class="rbody"><div class="insta-box"><div style="font-size:14px;line-height:1.85;color:#4a3a45;white-space:pre-wrap">'+esc(cleanKakao)+'</div></div></div></div>';
+  }
+
+  if (!html) html = '<div class="err-box">결과가 없어요. 채널을 선택하고 다시 시도해주세요.</div>';
+  document.getElementById('result-area').innerHTML = html;
+}
+
+// 히스토리 렌더링
+async function renderHistory() {
+  var list = document.getElementById('history-list');
+  list.innerHTML = '<div style="text-align:center;padding:20px;color:#8a7080">불러오는 중...</div>';
+  var items = await loadHistory();
+  if (!items.length) {
+    list.innerHTML = '<div style="text-align:center;padding:20px;color:#c4a8bb;font-size:13px">아직 저장된 콘텐츠가 없어요</div>';
+    return;
+  }
+  list.innerHTML = items.map(function(item) {
+    var date = new Date(item.created_at).toLocaleString('ko-KR',{month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit'});
+    var chs = (item.channels||[]).join(', ');
+    return '<div class="history-item" data-sid="'+item.share_id+'" onclick="loadHistoryItem(this.dataset.sid)">'
+      + '<div><div class="history-kw">'+esc(item.keyword)+'</div>'
+      + '<div class="history-meta">'+date+' · '+chs+'</div></div>'
+      + '<div style="font-size:11px;color:#E91E8C;font-weight:600">불러오기 →</div>'
+      + '</div>';
+  }).join('');
+}
+
+async function loadHistoryItem(shareId) {
+  var data = await loadByShareId(shareId);
+  if (!data) { alert('불러오기 실패'); return; }
+  showPage('main');
+  document.getElementById('kw').value = data.keyword;
+  document.getElementById('gen-btn').disabled = false;
+  document.getElementById('hint').style.display = 'none';
+  renderResult({
+    blogTitle: data.blog_title||'', blogHook: data.blog_hook||'', blogBody: data.blog_body||'',
+    instaCaption: data.insta_caption||'', instaHashtags: data.insta_hashtags||'',
+    youtubeDesc: data.youtube_desc||'', youtubeTags: data.youtube_tags||'',
+    threadPost: data.thread_post||'', kakaoMsg: data.kakao_msg||'',
+    isProduct: (data.keyword||'').indexOf('제품추천')>=0,
+    imgKw: getImgKeyword(data.keyword||''), products: ''
+  });
+  window.scrollTo(0, document.getElementById('result-area').offsetTop - 20);
+}
+
+// 관리자 기능
+function addTag(){
+  var inp=document.getElementById('tag-inp'); var t=inp.value.trim(); if(!t)return;
+  var tag=t.startsWith('#')?t:'#'+t;
+  if(!cfg.hashtags.includes(tag)){cfg.hashtags.push(tag);saveCfg();renderTagList();}
+  inp.value='';
+}
+function removeTag(i){cfg.hashtags.splice(i,1);saveCfg();renderTagList();}
+function renderTagList(){
+  var r=document.getElementById('tag-list');
+  r.innerHTML=cfg.hashtags.length===0?'<div style="text-align:center;padding:20px;color:#c4a8bb;font-size:13px">등록된 태그가 없어요</div>':cfg.hashtags.map(function(t,i){return '<span class="tag-chip">'+esc(t)+'<button class="tag-x" onclick="removeTag('+i+')">✕</button></span>';}).join('');
+  document.getElementById('tag-count').textContent='현재 '+cfg.hashtags.length+'개 등록됨';
+}
+function saveBrand(){cfg.brandGuide=document.getElementById('brand-txt').value;saveCfg();}
+function savePerson(){
+  var n=document.getElementById('p-name').value.trim(); if(!n)return;
+  var p={name:n,role:document.getElementById('p-role').value.trim(),desc:document.getElementById('p-desc').value.trim()};
+  if(editPIdx!==null){cfg.persons[editPIdx]=p;}else{cfg.persons.push(p);}
+  saveCfg();renderPersonsList();cancelPEdit();
+}
+function editPerson(i){
+  editPIdx=i;var p=cfg.persons[i];
+  document.getElementById('p-name').value=p.name;document.getElementById('p-role').value=p.role;document.getElementById('p-desc').value=p.desc;
+  document.getElementById('pform-title').textContent='인물 수정';document.getElementById('p-save-btn').textContent='✏️ 수정 완료';document.getElementById('p-cancel-btn').style.display='';
+}
+function cancelPEdit(){
+  editPIdx=null;document.getElementById('p-name').value='';document.getElementById('p-role').value='';document.getElementById('p-desc').value='';
+  document.getElementById('pform-title').textContent='새 인물 등록';document.getElementById('p-save-btn').textContent='➕ 등록하기';document.getElementById('p-cancel-btn').style.display='none';
+}
+function removePerson(i){cfg.persons.splice(i,1);saveCfg();renderPersonsList();}
+function renderPersonsList(){
+  var r=document.getElementById('persons-list');
+  if(!cfg.persons.length){r.innerHTML='<div style="text-align:center;padding:24px;background:#fff;border-radius:16px;border:1px solid #f0dcea;color:#c4a8bb;font-size:13px">등록된 인물이 없어요</div>';return;}
+  r.innerHTML=cfg.persons.map(function(p,i){return '<div class="person-card"><div><div style="display:flex;align-items:center;gap:7px;margin-bottom:5px"><span style="font-size:15px;font-weight:700;color:#1a1018">'+esc(p.name)+'</span><span class="person-role">'+esc(p.role)+'</span></div><div style="font-size:13px;color:#8a7080">'+esc(p.desc)+'</div></div><div style="display:flex;gap:6px;flex-shrink:0"><button class="sm-btn" onclick="editPerson('+i+')">수정</button><button class="del-btn" onclick="removePerson('+i+')">삭제</button></div></div>';}).join('');
+}
+
+init();
+</script>
+</body>
+</html>
