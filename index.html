@@ -967,14 +967,13 @@ const SITE_URL      = 'https://personalcolor-exam.vercel.app';  // ★ 배포된
 //   비워두면 [카톡으로 공유] 버튼은 사용 방법 안내만 표시됩니다.
 const KAKAO_JS_KEY  = '';
 
-// ★ 텔레그램 봇 알림 (새 응시자 등록 시 본사에 즉시 푸시 알림)
-//   설정 방법:
-//   ① 텔레그램 앱에서 @BotFather 검색 → /newbot → 봇 이름/유저네임 → 토큰 받기
-//   ② 새 봇과 대화 시작(/start) 후 @userinfobot 에서 Id 확인 → chat_id
-//   ③ 두 값을 아래에 붙여넣기 → 재배포
-//   주의: JS 코드에 토큰이 노출됩니다. 보안이 중요하면 Supabase Edge Function 도입 권장.
-const TELEGRAM_BOT_TOKEN = '8822054548:AAH1kqR2FJb5iS5_kdslNS_HTeRShLBtCno';
-const TELEGRAM_CHAT_ID   = '8697064342';
+// ★ 이메일 알림 엔드포인트 (Vercel Serverless Function /api/notify 사용)
+//   네이버 SMTP 설정: Vercel 환경변수에 SMTP_USER, SMTP_PASS, ADMIN_EMAIL 등록 필요
+//   비워두면 알림을 보내지 않습니다.
+const NOTIFY_API = '/api/notify';
+// (구) 텔레그램 — 더 이상 사용하지 않음. 필요시 둘 다 활성화 가능.
+const TELEGRAM_BOT_TOKEN = '';
+const TELEGRAM_CHAT_ID   = '';
 
 // 관리자 자동 새로고침 주기(초). 0이면 끔
 const ADMIN_REFRESH_SEC = 30;
@@ -1286,7 +1285,7 @@ async function submitApplication(mode){
         recordId=data.id;
         try{ await db.from(TABLE_NAME).update({ pay_method:'cash' }).eq('id', recordId); }
         catch(e){ console.warn('pay_method 컬럼 없음(무시):', e); }
-        try{ notifyTelegramNewApplicant(applicant); }catch(e){ console.warn('telegram:', e); }
+        try{ notifyAdminEmail(applicant, 'applied'); }catch(e){ console.warn('email notify:', e); }
       }
     }catch(e){ console.warn(e); }
   }
@@ -1537,7 +1536,26 @@ function copySmsBody(){
   }
 }
 
-// ── 텔레그램 봇 알림 ──
+// ── 이메일 알림 (Vercel /api/notify 호출, 네이버 SMTP) ──
+async function notifyAdminEmail(app, type){
+  if(!NOTIFY_API) return;
+  try{
+    await fetch(NOTIFY_API, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        type: type || 'applied',
+        name: app.name || '',
+        phone: app.phone || '',
+        inst: app.inst_code || '',
+        pay_method: app.pay_method || 'cash',
+        time: new Date().toLocaleString('ko-KR')
+      })
+    });
+  }catch(e){ console.warn('이메일 알림 전송 실패:', e); }
+}
+
+// (구) 텔레그램 — 환경변수가 채워져 있을 때만 함께 발송됨 (옵션)
 async function notifyTelegramNewApplicant(app){
   if(!TELEGRAM_BOT_TOKEN || !TELEGRAM_CHAT_ID) return;
   const name = app.name || '응시자';

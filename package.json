@@ -1,0 +1,9 @@
+{
+  "name": "personalcolor-exam",
+  "version": "1.0.0",
+  "private": true,
+  "description": "K-BEAUTY 퍼스널컬러 스타일리스트 자격시험 — PBS컬러랩",
+  "dependencies": {
+    "nodemailer": "^6.9.13"
+  }
+}
