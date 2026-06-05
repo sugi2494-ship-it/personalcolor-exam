@@ -967,6 +967,18 @@ const SITE_URL      = 'https://personalcolor-exam.vercel.app';  // ★ 배포된
 //   비워두면 [카톡으로 공유] 버튼은 사용 방법 안내만 표시됩니다.
 const KAKAO_JS_KEY  = '';
 
+// ★ 텔레그램 봇 알림 (새 응시자 등록 시 본사에 즉시 푸시 알림)
+//   설정 방법:
+//   ① 텔레그램 앱에서 @BotFather 검색 → /newbot → 봇 이름/유저네임 → 토큰 받기
+//   ② 새 봇과 대화 시작(/start) 후 @userinfobot 에서 Id 확인 → chat_id
+//   ③ 두 값을 아래에 붙여넣기 → 재배포
+//   주의: JS 코드에 토큰이 노출됩니다. 보안이 중요하면 Supabase Edge Function 도입 권장.
+const TELEGRAM_BOT_TOKEN = '8822054548:AAH1kqR2FJb5iS5_kdslNS_HTeRShLBtCno';
+const TELEGRAM_CHAT_ID   = '8697064342';
+
+// 관리자 자동 새로고침 주기(초). 0이면 끔
+const ADMIN_REFRESH_SEC = 30;
+
 let db = null;
 try { if (window.supabase && SUPABASE_URL.includes('supabase.co')) db = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY); } catch(e){ console.warn(e); }
 // 카카오 SDK 초기화 (Key가 있을 때만)
