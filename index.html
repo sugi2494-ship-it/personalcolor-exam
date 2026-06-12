@@ -1547,6 +1547,7 @@ async function notifyAdminEmail(app, type){
         type: type || 'applied',
         name: app.name || '',
         phone: app.phone || '',
+        email: app.email || '',
         inst: app.inst_code || '',
         pay_method: app.pay_method || 'cash',
         time: new Date().toLocaleString('ko-KR')
@@ -2085,7 +2086,19 @@ async function updatePaid(id,val,fromModal){
   if(error){ alert('실패: '+error.message); return; }
   if(fromModal) closeDetail();
   loadAdmin();
-  if(val && target) openApprovalSmsModal(target);
+  if(val && target){
+    // 1) 응시자에게 자동 이메일 안내 발송 (이메일 있을 때만)
+    if(target.email){
+      try{
+        notifyAdminEmail(target, 'approved');
+        showToast(`✅ ${target.name||'응시자'} 님에게 승인 안내 이메일을 발송했습니다.`);
+      }catch(e){ console.warn('승인 이메일 전송 실패:', e); }
+    } else {
+      showToast(`✅ ${target.name||'응시자'} 님을 승인했습니다. (응시자 이메일이 없어 자동 안내는 발송되지 않았습니다)`);
+    }
+    // 2) 본사가 직접 문자/카톡으로 보낼 수 있는 모달도 함께 띄움 (선택 사용)
+    openApprovalSmsModal(target);
+  }
 }
 function toggleAllChk(el){ document.querySelectorAll('.rowchk').forEach(c=>c.checked=el.checked); }
 async function deleteSelected(){
