@@ -770,7 +770,7 @@ tr:hover td{background:#fdf4fa;}
 <div class="modal" id="pwModal">
   <div class="modal-card">
     <h2>🔐 관리자 / 기관 로그인</h2>
-    <p>본사 관리자는 <b>기관코드는 비우고</b> 관리자 비밀번호만 입력하세요.<br>검정기관은 <b>기관코드 + 기관 비밀번호</b>를 함께 입력하세요.</p>
+    <p>본사 관리자는 <b>기관코드는 비우고</b> 본사 계정 비밀번호를 입력하세요.<br>검정기관은 <b>기관코드 + 기관 비밀번호</b>를 함께 입력하세요.</p>
     <input class="pw-input" type="text" id="instCodeInput" placeholder="기관코드 (본사는 비움 · 예: PBS-AB12)" autocomplete="off" style="width:100%;margin-bottom:8px;text-transform:uppercase" onkeydown="if(event.key==='Enter')verifyPw()">
     <div class="pw-row">
       <input class="pw-input" type="password" id="pwInput" placeholder="비밀번호" autocomplete="new-password" onkeydown="if(event.key==='Enter')verifyPw()">
@@ -778,6 +778,7 @@ tr:hover td{background:#fdf4fa;}
     </div>
     <div class="pw-error" id="pwError">⚠ 기관코드 또는 비밀번호가 올바르지 않습니다.</div>
     <div class="modal-acts"><button class="btn-cancel" onclick="closePwModal()">취소</button><button class="btn-ok" onclick="verifyPw()">확인</button></div>
+    <div style="text-align:center;margin-top:10px"><a href="javascript:void(0)" onclick="sendHqPwReset()" style="font-size:12px;color:#999">본사 비밀번호를 잊으셨나요? (재설정 메일 받기)</a></div>
   </div>
 </div>
 
@@ -953,7 +954,8 @@ const SUPABASE_KEY  = 'sb_publishable_mn7lAEbiyw1ArefbUh9R7w_fZOdW5g0';
 const TABLE_NAME    = 'pc_exam';
 const INST_TABLE    = 'pc_institutions';
 const BUCKET_NAME   = 'exam-photos';
-const ADMIN_PW      = 'pbs1004';     // ★ 관리자(본사) 비밀번호 (기관코드는 비우고 이 비번으로 로그인)
+// ★ 본사 관리자는 Supabase 계정(이메일+비밀번호)으로 로그인합니다. 비밀번호는 코드에 넣지 않습니다.
+const HQ_EMAIL      = 'sugi2494@gmail.com';
 const PASS_SCORE    = 70;            // 합격 기준 점수
 const TIME_LIMIT    = 30 * 60;       // 제한시간(초)
 const EXAMINER_NAME = '';            // ★ 자격증 검정강사명/서명 (비우면 표시 안 함, 발급 시 입력도 가능)
@@ -988,6 +990,25 @@ try {
   }
 } catch(e){ console.warn('Kakao 초기화 실패:', e); }
 if (!db) document.getElementById('setupBanner').classList.add('show');
+
+// ── 응시자 본인 기록 갱신 (서버 함수 · 결제승인 여부는 변경 불가) ──
+async function applicantUpdate(patch){
+  if(!db || !recordId || !applicant || !applicant.phone) return { error:null };
+  const { data, error } = await db.rpc('pc_applicant_update', { p_id: recordId, p_phone: applicant.phone, p: patch });
+  if(error) console.warn('applicantUpdate', error);
+  return { data, error };
+}
+// ── 비밀번호 재설정 메일로 들어온 경우: 새 비밀번호 설정 ──
+if(db){
+  db.auth.onAuthStateChange(async (event)=>{
+    if(event !== 'PASSWORD_RECOVERY') return;
+    const pw = prompt('새 관리자 비밀번호를 입력하세요. (8자 이상)');
+    if(!pw || pw.length < 8){ alert('비밀번호가 변경되지 않았습니다. (8자 이상 입력)'); return; }
+    const { error } = await db.auth.updateUser({ password: pw });
+    alert(error ? ('변경 실패: '+error.message) : '비밀번호가 변경되었습니다. 관리자 로그인에서 새 비밀번호를 사용하세요.');
+    await db.auth.signOut();
+  });
+}
 
 // 응시 비용 설정 (관리자가 변경 가능 · Supabase pc_settings 에 저장)
 let settings={fee_exam:FEE_EXAM, fee_cert:FEE_CERT, pay_account:PAY_ACCOUNT};
@@ -1133,10 +1154,9 @@ async function silentRefreshAdmin(){
   if(!db || document.hidden) return;
   if(currentRole !== 'hq' && currentRole !== 'inst') return;
   try{
-    const { data, error } = await db.from(TABLE_NAME).select('*').order('applied_at',{ascending:false});
+    const { data, error } = await fetchAdminRows();
     if(error) return;
     let rows = data || [];
-    if(currentRole==='inst' && currentInst) rows = rows.filter(r=>r.inst_code===currentInst.code);
     if(__lastAppliedCount >= 0 && rows.length > __lastAppliedCount){
       const newCount = rows.length - __lastAppliedCount;
       const latest = rows.slice(0, newCount);
@@ -1188,7 +1208,12 @@ function showToast(text){
   setTimeout(()=>{ toast.style.opacity='1'; toast.style.transform='translateX(0)'; }, 50);
   setTimeout(()=>{ toast.style.opacity='0'; toast.style.transform='translateX(100%)'; }, 6500);
 }
-function goHome(){ if(timerId) clearInterval(timerId); showPage('apply'); }
+function goHome(){
+  if(timerId) clearInterval(timerId);
+  if(currentRole==='hq' && db){ db.auth.signOut().catch(()=>{}); }
+  currentRole='hq'; currentInst=null;
+  showPage('apply');
+}
 
 // ── 사진 미리보기 ──
 function previewPhoto(input){
@@ -1225,8 +1250,8 @@ function checkInstInput(){
 const HQ_CODE='PBS001';   // ★ 본사 전용 기관코드 (응시권 무제한 · 항상 사용 가능)
 async function findInstitution(code){
   if(db){
-    const { data, error }=await db.from(INST_TABLE).select('*').eq('code',code).maybeSingle();
-    if(!error && data) return data;
+    const { data, error }=await db.rpc('pc_find_institution',{ p_code: code });
+    if(!error && data && data.length) return data[0];
   }
   if(code===HQ_CODE) return { code:HQ_CODE, name:'PBS컬러랩 본사', unlimited:true, allow_student_print:true };
   return null;
@@ -1274,17 +1299,14 @@ async function submitApplication(mode){
         if(!up.error) photoUrl=db.storage.from(BUCKET_NAME).getPublicUrl(path).data.publicUrl;
         else console.warn('photo upload',up.error);
       }
-      const { data, error }=await db.from(TABLE_NAME).insert([{
+      const { data, error }=await db.rpc('pc_apply',{ p:{
         name:applicant.name, phone:applicant.phone, birth:applicant.birth, affiliation:applicant.affiliation,
         passport_name:applicant.passport_name, email:applicant.email, address:applicant.address,
-        photo_url:photoUrl, inst_code:applicant.inst_code, pay_type:payType,
-        status:'applied', paid:applicant.paid, applied_at:applicant.applied_at
-      }]).select().single();
+        photo_url:photoUrl, inst_code:applicant.inst_code, pay_type:payType, status:'applied'
+      }});
       if(error) console.warn('insert',error);
       else {
-        recordId=data.id;
-        try{ await db.from(TABLE_NAME).update({ pay_method:'cash' }).eq('id', recordId); }
-        catch(e){ console.warn('pay_method 컬럼 없음(무시):', e); }
+        recordId=data;
         try{ notifyAdminEmail(applicant, 'applied'); }catch(e){ console.warn('email notify:', e); }
       }
     }catch(e){ console.warn(e); }
@@ -1317,15 +1339,9 @@ async function doResume(){
   if(!nm||!ph){ alert('이름과 연락처를 모두 입력해 주세요.'); return; }
   if(!db){ alert('Supabase가 설정되어야 검색할 수 있습니다.'); return; }
   // 1차: 정규화된 번호로 정확 검색
-  let { data, error }=await db.from(TABLE_NAME).select('*').eq('name',nm).eq('phone',ph).order('applied_at',{ascending:false});
+  // 이름 + 연락처(대시·공백 무시)가 모두 일치하는 본인 기록만 조회
+  let { data, error }=await db.rpc('pc_find_applicant',{ p_name: nm, p_phone: ph });
   if(error){ alert('검색 실패: '+error.message); return; }
-  // 2차 폴백: 이름만으로 검색 후 전화번호 정규화 비교 (대시 포함 저장된 기존 데이터 대응)
-  if((!data||!data.length)){
-    const r2=await db.from(TABLE_NAME).select('*').eq('name',nm).order('applied_at',{ascending:false});
-    if(!r2.error && r2.data && r2.data.length){
-      data=r2.data.filter(rec=>(rec.phone||'').replace(/[-\s]/g,'')===ph);
-    }
-  }
   const list=data||[];
   if(!list.length){ document.getElementById('resErr').style.display='block'; return; }
   let rec=list.find(r=>r.status!=='completed') || list[0];
@@ -1369,7 +1385,7 @@ function selectPayMethod(method, opts){
       applicant.pay_method='cash';
       try{
         if(typeof db !== 'undefined' && db && typeof recordId !== 'undefined' && recordId){
-          db.from(TABLE_NAME).update({ pay_method:'cash' }).eq('id', recordId).then(r=>{}, e=>console.warn('cash 복귀 실패:',e));
+          applicantUpdate({ pay_method:'cash' });
         }
       }catch(e){ console.warn(e); }
     }
@@ -1390,7 +1406,7 @@ function selectPayMethod(method, opts){
 async function autoRequestCard(){
   if(typeof applicant !== 'undefined' && applicant){ applicant.pay_method = 'card'; }
   if(typeof db !== 'undefined' && db && typeof recordId !== 'undefined' && recordId){
-    try{ await db.from(TABLE_NAME).update({ pay_method:'card' }).eq('id', recordId); }
+    try{ await applicantUpdate({ pay_method:'card' }); }
     catch(e){ console.warn('pay_method 업데이트 실패:', e); }
   }
   setCardRequestedUI();
@@ -1577,7 +1593,7 @@ async function requestCardPayment(){
   let dbOk = true;
   if(typeof db !== 'undefined' && db && typeof recordId !== 'undefined' && recordId){
     try{
-      const { error } = await db.from(TABLE_NAME).update({ pay_method: 'card' }).eq('id', recordId);
+      const { error } = await applicantUpdate({ pay_method: 'card' });
       if(error){
         dbOk = false;
         console.warn('pay_method 업데이트 실패(컬럼 없음 가능):', error);
@@ -1625,15 +1641,15 @@ async function recheckPayment(){
   let paid=false;
   if(db && recordId){
     try{
-      const {data,error}=await db.from(TABLE_NAME).select('paid').eq('id',recordId).single();
-      if(!error && data) paid=!!data.paid;
+      const {data,error}=await db.rpc('pc_check_paid',{ p_id: recordId, p_phone: applicant.phone });
+      if(!error) paid=!!data;
     }catch(e){ console.warn(e); }
   } else if(db && applicant && applicant.name && applicant.phone){
     // recordId 없는 경우 이름+전화로 재조회
     try{
       const ph=(applicant.phone||'').replace(/[-\s]/g,'');
-      const {data}=await db.from(TABLE_NAME).select('id,paid').eq('name',applicant.name).eq('phone',ph).order('applied_at',{ascending:false}).limit(1).single();
-      if(data){ recordId=data.id; paid=!!data.paid; }
+      const {data}=await db.rpc('pc_find_applicant',{ p_name: applicant.name, p_phone: ph });
+      if(data && data.length){ recordId=data[0].id; paid=!!data[0].paid; }
     }catch(e){ console.warn(e); }
   }
   if(paid){
@@ -1705,7 +1721,6 @@ async function startExam(){
   const exempt = !!(applicant.inst && applicant.inst.unlimited);
   if(!exempt && applicant.paid!==true){ alert('결제 승인 후 응시할 수 있습니다.\n입금이 확인되면 본사가 승인합니다.'); return; }
   // 사전 규약 동의는 자동 처리 (모달 없이 바로 시험 시작)
-  if(db && recordId){ try{ await db.from(TABLE_NAME).update({agreed_terms:true,agreed_terms_at:new Date().toISOString()}).eq('id',recordId); }catch(e){ console.warn(e); } }
   applicant.agreed_terms=true;
   buildQuiz();
   document.getElementById('examName').textContent=applicant.name;
@@ -1713,7 +1728,6 @@ async function startExam(){
 }
 function onTermsChk(){ document.getElementById('btnTermsStart').disabled=!document.getElementById('termsAgree').checked; }
 async function agreeTermsAndStart(){
-  if(db && recordId){ try{ await db.from(TABLE_NAME).update({agreed_terms:true,agreed_terms_at:new Date().toISOString()}).eq('id',recordId); }catch(e){ console.warn(e); } }
   applicant.agreed_terms=true;
   document.getElementById('termsModal').classList.remove('show');
   buildQuiz();
@@ -1765,8 +1779,8 @@ async function doSubmit(auto=false){
   if(db){
     try{
       const payload={obj_score:score,passed,status:'completed',submitted_at:new Date().toISOString(),answers:JSON.stringify(answers),duration_sec:durationSec};
-      if(recordId) await db.from(TABLE_NAME).update(payload).eq('id',recordId);
-      else { const {data:ins}=await db.from(TABLE_NAME).insert([{name:applicant.name,phone:applicant.phone,birth:applicant.birth,affiliation:applicant.affiliation,passport_name:applicant.passport_name,email:applicant.email,address:applicant.address,photo_url:applicant.photo_url,inst_code:applicant.inst_code,pay_type:applicant.pay_type,paid:applicant.paid,applied_at:applicant.applied_at,...payload}]).select().single(); if(ins) recordId=ins.id; }
+      if(recordId) await applicantUpdate(payload);
+      else { const {data:newId}=await db.rpc('pc_apply',{ p:{name:applicant.name,phone:applicant.phone,birth:applicant.birth,affiliation:applicant.affiliation,passport_name:applicant.passport_name,email:applicant.email,address:applicant.address,photo_url:applicant.photo_url,inst_code:applicant.inst_code,pay_type:applicant.pay_type,...payload} }); if(newId) recordId=newId; }
     }catch(e){ console.warn('save result',e); }
   }
   showResult(score,correct,passed);
@@ -1804,7 +1818,6 @@ async function onPledgeChk(){
   if(!chk){ certActions.style.display='none'; certNote.style.display='none'; if(pa)pa.style.display='none'; const _b=document.getElementById('completionBanner'); if(_b)_b.style.display='none'; const _g=document.getElementById('btnGoHome'); if(_g)_g.textContent='처음으로 돌아가기'; currentPledge=null; return; }
   currentPledge={name:applicant.name, date:new Date().toLocaleString('ko-KR')};
   if(pa) pa.style.display='flex';
-  if(db && recordId){ try{ await db.from(TABLE_NAME).update({agreed_pledge:true,agreed_pledge_at:new Date().toISOString()}).eq('id',recordId); }catch(e){ console.warn(e); } }
   let studentCanPrint=true;
   if(applicant.pay_type==='institution' && applicant.inst) studentCanPrint=!!applicant.inst.allow_student_print;
   // 완료 배너 표시
@@ -1858,18 +1871,26 @@ function togglePw(){ const inp=document.getElementById('pwInput'),btn=document.g
 async function verifyPw(){
   const code=document.getElementById('instCodeInput').value.trim().toUpperCase();
   const pw=document.getElementById('pwInput').value.trim();
-  const eq=(a,b)=>String(a).toLowerCase()===String(b).toLowerCase();  // 대소문자 무관 비교
   const fail=()=>{ const inp=document.getElementById('pwInput'); inp.classList.remove('shake'); void inp.offsetWidth; inp.classList.add('shake'); inp.value=''; document.getElementById('pwError').style.display='block'; setTimeout(()=>inp.focus(),50); };
-  if(!code){ // 본사 관리자: 기관코드 비움 + 관리자 비번
-    if(eq(pw,ADMIN_PW)){ currentRole='hq'; currentInst=null; closePwModal(); setupAdminUI(); adminTab('result'); loadAdmin(); loadInstitutions(); showPage('admin'); }
-    else fail();
+  if(!db || !pw){ fail(); return; }
+  if(!code || code.includes('@')){ // 본사 관리자: Supabase 계정(이메일+비밀번호)
+    const email = code ? code.toLowerCase() : HQ_EMAIL;
+    const { error } = await db.auth.signInWithPassword({ email, password: pw });
+    if(error){ fail(); return; }
+    currentRole='hq'; currentInst=null; closePwModal(); setupAdminUI(); adminTab('result'); loadAdmin(); loadInstitutions(); showPage('admin');
     return;
   }
-  // 기관 로그인: 기관코드 + 기관 비밀번호 (학생은 비번을 모름)
-  const inst = db ? await findInstitution(code) : null;
-  if(inst && inst.login_pw && eq(pw,inst.login_pw)){
-    currentRole='inst'; currentInst=inst; closePwModal(); setupAdminUI(); adminTab('result'); loadAdmin(); showPage('admin');
+  // 기관 로그인: 기관코드 + 기관 비밀번호 (서버에서 확인)
+  const { data, error } = await db.rpc('pc_inst_login',{ p_code: code, p_pw: pw });
+  if(!error && data && data.length){
+    currentRole='inst'; currentInst={ ...data[0], __pw: pw }; closePwModal(); setupAdminUI(); adminTab('result'); loadAdmin(); showPage('admin');
   } else fail();
+}
+async function sendHqPwReset(){
+  if(!db) return;
+  if(!confirm(HQ_EMAIL+' 로 관리자 비밀번호 재설정 메일을 보낼까요?')) return;
+  const { error } = await db.auth.resetPasswordForEmail(HQ_EMAIL, { redirectTo: SITE_URL });
+  alert(error ? ('메일 발송 실패: '+error.message) : '재설정 메일을 보냈습니다. 메일의 링크를 누르면 이 사이트에서 새 비밀번호를 정할 수 있습니다.');
 }
 function setupAdminUI(){
   const isHQ = currentRole==='hq';
@@ -1904,13 +1925,32 @@ async function loadAdmin(){
   const body=document.getElementById('adminTableBody');
   if(!db){ body.innerHTML='<div class="empty-state">⚠ Supabase가 설정되지 않아 데이터를 불러올 수 없습니다.</div>'; renderStats([]); return; }
   body.innerHTML='<div class="empty-state">불러오는 중...</div>';
-  const { data, error }=await db.from(TABLE_NAME).select('*').order('applied_at',{ascending:false});
-  if(error){ body.innerHTML=`<div class="empty-state" style="color:var(--fail)">⚠ 로드 실패: ${error.message}<br><small>Supabase 테이블 설정을 확인하세요.</small></div>`; return; }
+  const { data, error }=await fetchAdminRows();
+  if(error){ body.innerHTML=`<div class="empty-state" style="color:var(--fail)">⚠ 로드 실패: ${error.message}<br><small>로그인이 만료되었다면 다시 로그인해 주세요.</small></div>`; return; }
   adminData=data||[];
-  if(currentRole==='inst' && currentInst) adminData=adminData.filter(r=>r.inst_code===currentInst.code);
+  await signPhotoUrls(adminData);
   __lastAppliedCount = adminData.length;
   await checkPayMethodColumn();
   renderAdmin();
+}
+
+// 본사: 로그인 계정 권한으로 전체 조회 · 기관: 기관코드+비번으로 소속 응시자만 조회
+async function fetchAdminRows(){
+  if(currentRole==='inst' && currentInst) return await db.rpc('pc_inst_applicants',{ p_code: currentInst.code, p_pw: currentInst.__pw });
+  return await db.from(TABLE_NAME).select('*').order('applied_at',{ascending:false});
+}
+// 비공개 사진 저장소 → 본사 관리자에게만 1시간짜리 임시 링크로 표시
+async function signPhotoUrls(rows){
+  if(currentRole!=='hq') return;
+  const mark='/'+BUCKET_NAME+'/';
+  const paths=rows.map(r=>r.photo_url&&r.photo_url.includes(mark)?r.photo_url.split(mark).pop().split('?')[0]:null);
+  const list=[...new Set(paths.filter(Boolean))];
+  if(!list.length) return;
+  try{
+    const { data } = await db.storage.from(BUCKET_NAME).createSignedUrls(list, 3600);
+    const map={}; (data||[]).forEach(d=>{ if(d.signedUrl) map[d.path]=d.signedUrl; });
+    rows.forEach((r,i)=>{ if(paths[i] && map[paths[i]]) r.photo_url=map[paths[i]]; });
+  }catch(e){ console.warn('photo sign', e); }
 }
 
 let __payMethodColExists = null;   // null=미확인, true=있음, false=없음
@@ -2216,9 +2256,9 @@ async function changeMyPw(){
   if(currentRole!=='inst' || !currentInst || !db){ return; }
   const v=prompt('기관 로그인에 사용할 새 비밀번호를 입력하세요:'); if(v===null) return;
   const pw=v.trim(); if(!pw){ alert('비밀번호를 입력하세요.'); return; }
-  const { error }=await db.from(INST_TABLE).update({login_pw:pw}).eq('id',currentInst.id);
-  if(error){ alert('변경 실패: '+error.message); return; }
-  currentInst.login_pw=pw;
+  const { data, error }=await db.rpc('pc_inst_change_pw',{ p_code: currentInst.code, p_old: currentInst.__pw, p_new: pw });
+  if(error || !data){ alert('변경 실패: '+(error?error.message:'현재 비밀번호를 확인해 주세요.')); return; }
+  currentInst.__pw=pw;
   alert('기관 비밀번호가 변경되었습니다.\n다음 로그인부터 새 비밀번호를 사용하세요.');
 }
 async function setInstFee(id){
@@ -2432,51 +2472,11 @@ CREATE TABLE pc_exam (
 -- ALTER TABLE pc_exam ADD COLUMN IF NOT EXISTS agreed_pledge boolean DEFAULT false;
 -- ALTER TABLE pc_exam ADD COLUMN IF NOT EXISTS agreed_pledge_at timestamptz;
 -- ALTER TABLE pc_exam ADD COLUMN IF NOT EXISTS pay_method text DEFAULT 'cash';
-ALTER TABLE pc_exam ENABLE ROW LEVEL SECURITY;
-CREATE POLICY "ex_ins" ON pc_exam FOR INSERT WITH CHECK (true);
-CREATE POLICY "ex_sel" ON pc_exam FOR SELECT USING (true);
-CREATE POLICY "ex_upd" ON pc_exam FOR UPDATE USING (true) WITH CHECK (true);
-CREATE POLICY "ex_del" ON pc_exam FOR DELETE USING (true);
-
--- 2) 검정기관 테이블 (코드·응시권 토큰)
-CREATE TABLE pc_institutions (
-  id                  bigint GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
-  code                text UNIQUE NOT NULL,
-  name                text NOT NULL,
-  contact             text,
-  tokens              integer DEFAULT 0,     -- 잔여 응시권
-  allow_student_print boolean DEFAULT true,  -- 학생 직접출력 허용
-  unlimited           boolean DEFAULT false, -- 단체협약(응시권 무제한)
-  login_pw            text,                  -- 기관 로그인 비밀번호
-  created_at          timestamptz DEFAULT now()
-);
--- (이미 pc_institutions 를 만든 경우엔 아래만 추가 실행)
--- ALTER TABLE pc_institutions ADD COLUMN IF NOT EXISTS login_pw text;
--- ALTER TABLE pc_institutions ADD COLUMN IF NOT EXISTS unlimited boolean DEFAULT false;
--- ALTER TABLE pc_institutions ADD COLUMN IF NOT EXISTS fee_exam integer;   -- 기관별 응시료(NULL=기본값)
--- ALTER TABLE pc_institutions ADD COLUMN IF NOT EXISTS fee_cert integer;   -- 기관별 발급비(NULL=기본값)
-ALTER TABLE pc_institutions ENABLE ROW LEVEL SECURITY;
-CREATE POLICY "in_ins" ON pc_institutions FOR INSERT WITH CHECK (true);
-CREATE POLICY "in_sel" ON pc_institutions FOR SELECT USING (true);
-CREATE POLICY "in_upd" ON pc_institutions FOR UPDATE USING (true) WITH CHECK (true);
-CREATE POLICY "in_del" ON pc_institutions FOR DELETE USING (true);
-
--- 2-2) 응시 비용 설정 테이블 (금액·계좌를 관리자 페이지에서 변경)
-CREATE TABLE pc_settings (
-  id          int PRIMARY KEY DEFAULT 1,
-  fee_exam    integer DEFAULT 30000,
-  fee_cert    integer DEFAULT 70000,
-  pay_account text DEFAULT '카카오뱅크 3333-14-5173594'
-);
-INSERT INTO pc_settings (id) VALUES (1) ON CONFLICT (id) DO NOTHING;
-ALTER TABLE pc_settings ENABLE ROW LEVEL SECURITY;
-CREATE POLICY "set_sel" ON pc_settings FOR SELECT USING (true);
-CREATE POLICY "set_ins" ON pc_settings FOR INSERT WITH CHECK (true);
-CREATE POLICY "set_upd" ON pc_settings FOR UPDATE USING (true) WITH CHECK (true);
-
--- 3) 사진 저장소: 대시보드 → Storage → New bucket → 이름 'exam-photos' → Public 체크
-CREATE POLICY "photo_upload" ON storage.objects FOR INSERT TO anon WITH CHECK (bucket_id='exam-photos');
-CREATE POLICY "photo_read"   ON storage.objects FOR SELECT TO anon USING (bucket_id='exam-photos');
+-- ⚠ 보안: 공개 읽기/수정/삭제 정책은 사용하지 않습니다.
+--   접근 규칙과 서버 함수(pc_apply, pc_find_applicant, pc_check_paid, pc_applicant_update,
+--   pc_find_institution, pc_inst_login, pc_inst_applicants, pc_inst_change_pw, pc_is_hq)는
+--   Supabase 마이그레이션 'pc_exam_secure_rpcs', 'pc_exam_lockdown' 에 들어 있습니다.
+--   본사 관리자만(Supabase 계정 로그인) 전체 조회·승인·삭제가 가능합니다.
 ════════════════════════════════════════════════════════════════
 -->
 </body>
